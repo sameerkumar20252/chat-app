@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Real-Time Chat Application</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.2.0/bundles/stomp.umd.min.js"></script>
+
+    <style>
+        :root {
+            --ink: #14231F;
+            --muted: #5E6F69;
+            --accent: #0E7C66;
+            --accent-dark: #0A5E4D;
+            --paper: #FFFFFF;
+            --canvas: #E6EEEA;
+            --well: #F5F9F7;
+            --line: #D5E0DB;
+        }
+
+        body {
+            font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: var(--canvas);
+            color: var(--ink);
+            min-height: 100vh;
+        }
+
+        /* Main card */
+        .container {
+            max-width: 720px;
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 1px 2px rgba(20, 35, 31, .06),
+            0 18px 40px -16px rgba(20, 35, 31, .22);
+        }
+        .container.mt-4 {
+            margin-top: 3rem !important;
+            margin-bottom: 3rem;
+        }
+
+        /* Heading */
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 1.5rem;
+        }
+        h1::after {
+            content: "";
+            display: block;
+            width: 48px;
+            height: 4px;
+            margin: .75rem auto 0;
+            border-radius: 4px;
+            background: var(--accent);
+        }
+
+        /* Message area */
+        #chat {
+            height: 380px;
+            background: var(--well);
+            border: 1px solid var(--line) !important;
+            border-radius: 14px !important;
+            padding: 1rem !important;
+            scrollbar-width: thin;
+            scrollbar-color: #B7C8C1 transparent;
+        }
+        #chat::-webkit-scrollbar { width: 8px; }
+        #chat::-webkit-scrollbar-thumb { background: #B7C8C1; border-radius: 8px; }
+
+        /* Each message */
+        #chat > div {
+            width: fit-content;
+            max-width: 85%;
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-left: 3px solid var(--accent);
+            border-radius: 4px 14px 14px 14px;
+            padding: .55rem .85rem;
+            margin-bottom: .6rem !important;
+            font-size: .95rem;
+            line-height: 1.45;
+            overflow-wrap: anywhere;
+            animation: arrive .18s ease-out;
+        }
+        #chat > div.border-bottom {
+            border-bottom: 1px solid var(--line) !important;
+        }
+        @keyframes arrive {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: none; }
+        }
+
+        /* Inputs */
+        .form-control {
+            background: var(--paper);
+            color: var(--ink);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: .7rem 1rem;
+            font-size: .95rem;
+        }
+        .form-control::placeholder { color: #8A9A94; }
+        .form-control:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 .2rem rgba(14, 124, 102, .18);
+        }
+
+        /* Message field + send button read as one control */
+        #messageInput { border-radius: 12px 0 0 12px; }
+        #input-group-append { display: flex; }
+
+        #sendMessage {
+            --bs-btn-bg: var(--accent);
+            --bs-btn-border-color: var(--accent);
+            --bs-btn-hover-bg: var(--accent-dark);
+            --bs-btn-hover-border-color: var(--accent-dark);
+            --bs-btn-active-bg: var(--accent-dark);
+            --bs-btn-active-border-color: var(--accent-dark);
+            --bs-btn-disabled-bg: #9DB8B0;
+            --bs-btn-disabled-border-color: #9DB8B0;
+            --bs-btn-focus-shadow-rgb: 14, 124, 102;
+            border-radius: 0 12px 12px 0;
+            padding: .7rem 1.6rem;
+            font-weight: 700;
+            letter-spacing: .01em;
+        }
+
+        /* Clear chat button */
+        #clearChat {
+            border-radius: 12px;
+            padding: .45rem 1rem;
+            font-size: .875rem;
+            font-weight: 700;
+            --bs-btn-color: #B3261E;
+            --bs-btn-border-color: #E3C3C0;
+            --bs-btn-hover-bg: #B3261E;
+            --bs-btn-hover-border-color: #B3261E;
+            --bs-btn-active-bg: #8F1D17;
+            --bs-btn-active-border-color: #8F1D17;
+            --bs-btn-disabled-color: #B9A5A3;
+            --bs-btn-disabled-border-color: #EADFDE;
+        }
+
+        /* Small screens: card fills the viewport */
+        @media (max-width: 576px) {
+            .container.mt-4 {
+                margin-top: 0 !important;
+                margin-bottom: 0;
+                min-height: 100vh;
+                border-radius: 0;
+                border-left: 0;
+                border-right: 0;
+                padding: 1.25rem;
+            }
+            h1 { font-size: 1.4rem; }
+            #chat { height: 55vh; }
+            #chat > div { max-width: 92%; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #chat > div { animation: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="container mt-4">
+    <h1 class="text-center">Real-Time Chat Application</h1>
+    <div id="chat"
+         class="border rounded p-3 mb-3">
+    </div>
+
+    <div class="input-group mb-3">
+        <input id="senderInput" type="text" class="form-control"
+               placeholder="Your name...."/>
+    </div>
+
+    <div class="input-group mb-3">
+        <input id="messageInput" type="text" class="form-control"
+               placeholder="Your a message...."/>
+        <div id="input-group-append">
+            <button id="sendMessage" class="btn btn-primary">Send</button>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end">
+        <button id="clearChat" class="btn btn-outline-danger">Clear chat for everyone</button>
+    </div>
+</div>
+</body>
+<script>
+    let stompClient = null;
+
+    function setConnected(connected) {
+        document.getElementById('sendMessage').disabled = !connected;
+        document.getElementById('clearChat').disabled = !connected;
+    }
+
+    setConnected(false);   // disabled until the connection is ready
+
+    function connect() {
+        stompClient = new StompJs.Client({
+            webSocketFactory: () => new SockJS('/chat'),
+            reconnectDelay: 5000,
+
+            onConnect: function () {
+                setConnected(true);
+                stompClient.subscribe('/topic/messages', m => showMessage(JSON.parse(m.body)));
+                stompClient.subscribe('/topic/clear', () => clearMessages());
+            },
+            onWebSocketClose: function () {
+                setConnected(false);   // re-enabled by onConnect after auto-reconnect
+            },
+            onStompError: frame => console.error("STOMP error:", frame),
+            onWebSocketError: err => console.error("WebSocket error:", err)
+        });
+        stompClient.activate();
+    }
+
+    function showMessage(message) {
+        const chat = document.getElementById('chat');
+        const el = document.createElement('div');
+        el.textContent = message.sender + ': ' + message.content;
+        el.className = "border-bottom mb-1";
+        chat.appendChild(el);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    function sendMessage() {
+        if (!stompClient || !stompClient.connected) return;
+
+        const sender  = document.getElementById('senderInput').value.trim();
+        const content = document.getElementById('messageInput').value.trim();
+        if (!content) return;
+
+        stompClient.publish({
+            destination: "/app/sendMessage",
+            body: JSON.stringify({ sender: sender || "Anonymous", content: content })
+        });
+        document.getElementById('messageInput').value = '';
+    }
+
+    function clearMessages() {
+        document.getElementById('chat').innerHTML = '';
+    }
+
+    function clearChat() {
+        if (!stompClient || !stompClient.connected) return;
+        if (!confirm('Clear the chat for everyone?')) return;
+        stompClient.publish({ destination: "/app/clearChat" });
+    }
+
+    document.getElementById('sendMessage').onclick = sendMessage;
+    document.getElementById('clearChat').onclick = clearChat;
+    document.getElementById('messageInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') sendMessage();
+    });
+
+    window.onload = connect;
+</script>
+</html>
