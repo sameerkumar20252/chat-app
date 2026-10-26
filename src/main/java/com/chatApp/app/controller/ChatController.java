@@ -19,9 +19,9 @@ public class ChatController {
         }
         return message;
     }
-    @GetMapping("/chat")
+    @GetMapping({"/", "/chat"})
     public String index() {
-        return "chat";   // templates/index.html
+        return "chat";
     }
     // /app/clearChat
     @MessageMapping("/clearChat")
